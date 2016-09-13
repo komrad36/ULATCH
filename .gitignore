@@ -1,0 +1,7 @@
+*
+!.gitignore
+!test.jpg
+!ULATCH.h
+!Makefile
+!main.cpp
+!README.md
