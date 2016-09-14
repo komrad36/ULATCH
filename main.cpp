@@ -28,7 +28,8 @@
 // See my GitHub for this CUDA version, which is extremely fast.
 //
 // Note once again that this is an UPRIGHT LATCH, a.k.a. ULATCH.
-// A fast rotation- and scale-invariant version is in the works.
+// A fast rotation- and scale-invariant version is
+// also available on my GitHub.
 //
 // My implementation uses multithreading and 
 // many careful optimizations to implement the
