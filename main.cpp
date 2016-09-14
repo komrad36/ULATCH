@@ -29,8 +29,8 @@
 // My implementation uses multithreading and 
 // many careful optimizations to implement the
 // algorithm as described in the paper, but at great speed.
-// This implementation outperforms the reference implementation by 400%
-// single-threaded or 1700% multi-threaded (!) while exactly matching
+// This implementation outperforms the reference implementation by 700%
+// single-threaded or 2900% multi-threaded (!) while exactly matching
 // the reference implementation's output and capabilities in upright mode.
 //
 // All functionality is contained in the file ULATCH.h. This file
@@ -52,8 +52,8 @@ using namespace std::chrono;
 
 int main() {
 	// ------------- Configuration ------------
-	constexpr int warmups = 50;
-	constexpr int runs = 150;
+	constexpr int warmups = 20;
+	constexpr int runs = 40;
 	constexpr int numkps = 5000;
 	constexpr bool multithread = true;
 	constexpr char name[] = "test.jpg";
@@ -91,4 +91,7 @@ int main() {
 
 	std::cout << std::endl << "ULATCH took " << static_cast<double>((end - start).count()) * 1e-3 / (static_cast<double>(runs) * static_cast<double>(kps.size())) << " us per desc over " << kps.size() << " desc" << (kps.size() == 1 ? "." : "s.") << std::endl << std::endl;
 
+	long long total = 0;
+	for (size_t i = 0; i < 8 * kps.size(); ++i) total += desc[i];
+	std::cout << "Checksum: " << std::hex << total << std::endl << std::endl;
 }
