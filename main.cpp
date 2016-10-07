@@ -31,11 +31,11 @@
 // A fast rotation- and scale-invariant version is
 // also available on my GitHub.
 //
-// My implementation uses multithreading and 
-// many careful optimizations to implement the
+// My implementation uses multithreading, SSE2/3/4/4.1, AVX, AVX2, and 
+// many many careful optimizations to implement the
 // algorithm as described in the paper, but at great speed.
-// This implementation outperforms the reference implementation by 700%
-// single-threaded or 2900% multi-threaded (!) while exactly matching
+// This implementation outperforms the reference implementation by 800%
+// single-threaded or 3200% multi-threaded (!) while exactly matching
 // the reference implementation's output and capabilities in upright mode.
 //
 // All functionality is contained in the file ULATCH.h. 'main.cpp'
@@ -57,8 +57,8 @@ using namespace std::chrono;
 
 int main() {
 	// ------------- Configuration ------------
-	constexpr int warmups = 20;
-	constexpr int runs = 40;
+	constexpr int warmups = 30;
+	constexpr int runs = 100;
 	constexpr int numkps = 5000;
 	constexpr bool multithread = true;
 	constexpr char name[] = "test.jpg";

@@ -31,11 +31,11 @@
 // A fast rotation- and scale-invariant version is
 // also available on my GitHub.
 //
-// My implementation uses multithreading and 
-// many careful optimizations to implement the
+// My implementation uses multithreading, SSE2/3/4/4.1, AVX, AVX2, and 
+// many many careful optimizations to implement the
 // algorithm as described in the paper, but at great speed.
-// This implementation outperforms the reference implementation by 700%
-// single-threaded or 2900% multi-threaded (!) while exactly matching
+// This implementation outperforms the reference implementation by 800%
+// single-threaded or 3200% multi-threaded (!) while exactly matching
 // the reference implementation's output and capabilities in upright mode.
 //
 // All functionality is contained in the file ULATCH.h. 'main.cpp'
@@ -61,36 +61,24 @@ void _ULATCH(const int start, const int thread_stride, const uint8_t* const __re
 	for (int i = start; i < start + thread_stride; ++i) {
 		uint8_t* const __restrict desc = reinterpret_cast<uint8_t*>(descriptors + (i << 3));
 		const KeyPoint pt = keypoints[i];
-		const int ptx = _mm_cvt_ss2si(_mm_set_ps1(pt.x));
-		const int pty = _mm_cvt_ss2si(_mm_set_ps1(pt.y));
 		const int8_t* __restrict triplet = triplets;
+		const uint8_t* const __restrict imgbase_static = image + _mm_cvt_ss2si(_mm_set_ss(pt.x)) + stride*(_mm_cvt_ss2si(_mm_set_ss(pt.y)) - 3) - 3;
 		for (int fragment = 0; fragment < 64; ++fragment) {
 			desc[fragment] = 0;
-			for (int bit = 0; bit < 8; ++bit) {
-				const int ax2 = ptx + *triplet++;
-				const int bx2 = ptx + *triplet++;
-				const int cx2 = ptx + *triplet++;
-				const int ay2 = pty + *triplet++;
-				const int by2 = pty + *triplet++;
-				const int cy2 = pty + *triplet++;
-				__m128i accum = _mm_setzero_si128();
-				for (int patchy = -3; patchy <= 4; ++patchy) {
-					const uint8_t* const __restrict im_a = image + stride*(ay2 + patchy) + ax2 - 3;
-					const uint8_t* const __restrict im_b = image + stride*(by2 + patchy) + bx2 - 3;
-					const uint8_t* const __restrict im_c = image + stride*(cy2 + patchy) + cx2 - 3;
-					const __m128i b1 = _mm_cvtepu8_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(im_b)));
-					const __m128i b2 = _mm_cvtepu8_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(im_b + 4)));
-					__m128i da1 = _mm_sub_epi32(_mm_cvtepu8_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(im_a))), b1);
-					da1 = _mm_mullo_epi32(da1, da1);
-					__m128i da2 = _mm_sub_epi32(_mm_cvtepu8_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(im_a + 4))), b2);
-					da2 = _mm_add_epi32(da1, _mm_mullo_epi32(da2, da2));
-					__m128i dc1 = _mm_sub_epi32(_mm_cvtepu8_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(im_c))), b1);
-					dc1 = _mm_mullo_epi32(dc1, dc1);
-					__m128i dc2 = _mm_sub_epi32(_mm_cvtepu8_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(im_c + 4))), b2);
-					accum = _mm_add_epi32(_mm_sub_epi32(da2, _mm_add_epi32(dc1, _mm_mullo_epi32(dc2, dc2))), accum);
+			for (int bit = 0; bit < 8; ++bit, triplet += 6) {
+				const uint8_t* __restrict imgbase = imgbase_static;
+				const int o[]{ triplet[0] + stride*triplet[3], triplet[1] + stride*triplet[4], triplet[2] + stride*triplet[5] };
+				__m256i accum = _mm256_setzero_si256();
+				for (int patchy = 0; patchy < 7; ++patchy, imgbase += stride) {
+					const __m256i b = _mm256_cvtepu8_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(imgbase + o[1])));
+					__m256i da = _mm256_sub_epi32(_mm256_cvtepu8_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(imgbase + o[0]))), b);
+					da = _mm256_mullo_epi32(da, da);
+					const __m256i dc = _mm256_sub_epi32(_mm256_cvtepu8_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(imgbase + o[2]))), b);
+					accum = _mm256_add_epi32(_mm256_sub_epi32(da, _mm256_mullo_epi32(dc, dc)), accum);
 				}
-				accum = _mm_hadd_epi32(accum, accum);
-				desc[fragment] |= ((_mm_extract_epi32(accum, 0) + _mm_extract_epi32(accum, 1)) & 0x80000000) >> (31 - bit);
+				__m128i sumv = _mm_add_epi32(_mm256_extractf128_si256(accum, 1), _mm256_castsi256_si128(accum));
+				sumv = _mm_add_epi32(sumv, _mm_shuffle_epi32(sumv, 14));
+				desc[fragment] |= (static_cast<uint32_t>(_mm_cvtsi128_si32(_mm_add_epi32(sumv, _mm_shuffle_epi32(sumv, 1)))) & 0x80000000U) >> (31 - bit);
 			}
 		}
 	}
